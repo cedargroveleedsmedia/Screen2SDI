@@ -27,6 +27,10 @@
 .PARAMETER Install
   Copy the built exe to C:\Program Files\Screen2SDI, add the firewall rule and start it.
 
+.PARAMETER NoStart
+  With -Install: install but do NOT start the app (e.g. while another program still uses the
+  DeckLink). Start it later from "C:\Program Files\Screen2SDI\Screen2SDI.exe".
+
 .PARAMETER WithVirtualDisplays
   Also install the Virtual Display Driver (virtual monitors for display capture).
 
@@ -48,6 +52,7 @@
 [CmdletBinding()]
 param(
     [switch]$Install,
+    [switch]$NoStart,
     [switch]$WithVirtualDisplays,
     [switch]$NoNdi,
     [switch]$SkipPrereqs,
@@ -290,11 +295,16 @@ if ($Install) {
         Ok 'Rule added'
     } else { Ok 'Rule already exists' }
 
-    Step 'Starting Screen2SDI as the signed-in user'
-    # explorer.exe starts it un-elevated in the user's session, so the tray icon and the
-    # "Run at Windows startup" entry (HKCU) belong to the person at the desk, not the admin.
-    Start-Process -FilePath 'explorer.exe' -ArgumentList "`"$target`""
-    Ok 'Started. Settings opens on the first run; see README section 2, step 4.'
+    if ($NoStart) {
+        Step 'Not starting Screen2SDI (-NoStart)'
+        Ok "Installed only. Start it when ready: $target"
+    } else {
+        Step 'Starting Screen2SDI as the signed-in user'
+        # explorer.exe starts it un-elevated in the user's session, so the tray icon and the
+        # "Run at Windows startup" entry (HKCU) belong to the person at the desk, not the admin.
+        Start-Process -FilePath 'explorer.exe' -ArgumentList "`"$target`""
+        Ok 'Started. Settings opens on the first run; see README section 2, step 4.'
+    }
 
     $oldDir = Join-Path $env:ProgramFiles 'NDI2SDI'
     if (Test-Path $oldDir) {

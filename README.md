@@ -95,6 +95,7 @@ instructions in sections 1 and 2 below cover the same ground.
 |---|---|
 | *(none)* | Check/install prerequisites, build and test. Nothing is installed to Program Files. |
 | `-Install` | Also install to `C:\Program Files\Screen2SDI` (keeps the previous exe as `.bak`), add the firewall rule, and start the app. |
+| `-NoStart` | With `-Install`: install but don't start the app, e.g. while another program (ProPresenter, etc.) still uses the DeckLink. Start it later from `C:\Program Files\Screen2SDI\Screen2SDI.exe`. |
 | `-WithVirtualDisplays` | Also install the Virtual Display Driver. |
 | `-NoNdi` | Build without NDI (display capture only); skip all NDI checks. |
 | `-SkipPrereqs` | Only build (no admin rights needed unless `-Install`). |
