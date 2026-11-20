@@ -1,5 +1,19 @@
 #include "NdiLib.h"
 
+#if !NDI2SDI_HAS_NDI
+
+// Display-capture-only build: NDI is never available.
+namespace Ndi {
+bool Load(std::string* error) {
+    if (error) *error = "NDI is not included in this build (rebuild with the NDI SDK installed)";
+    return false;
+}
+void Unload() {}
+std::vector<std::string> GetSourceNames() { return {}; }
+}  // namespace Ndi
+
+#else
+
 #include <windows.h>
 
 #include <mutex>
@@ -92,3 +106,5 @@ std::vector<std::string> GetSourceNames() {
 }
 
 }  // namespace Ndi
+
+#endif  // NDI2SDI_HAS_NDI

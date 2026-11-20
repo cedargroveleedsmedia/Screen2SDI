@@ -11,10 +11,11 @@
        missing components to an existing Visual Studio 2022.
     3. Blackmagic Desktop Video: detects it. It cannot be downloaded automatically (Blackmagic
        requires a registration form), so the script opens the download page and stops.
-    4. NDI 6 SDK: detects it. It also needs a form on ndi.video, so the script opens the page
-       and stops.
-    5. NDI 6 Runtime: detects it; if missing, offers to run the runtime installer (from the SDK's
-       Redist folder, or downloaded from ndi.link). You accept NDI's licence in that installer.
+    4. NDI 6 SDK (OPTIONAL): NDI is NOT required. Without it the app is built for display capture
+       only (virtual or physical monitor -> SDI). If the SDK is missing the script asks whether to
+       continue without NDI, or opens the download page (it needs a form on ndi.video).
+    5. NDI 6 Runtime (only if building with NDI): detects it; if missing, offers to run the runtime
+       installer (from the SDK's Redist folder, or downloaded from ndi.link).
     6. Virtual Display Driver (only with -WithVirtualDisplays): installs it with winget.
     7. Builds with build.bat and runs the unit tests.
     8. With -Install: copies NDI2SDI.exe to "C:\Program Files\NDI2SDI", adds a Windows Firewall
@@ -29,6 +30,9 @@
 .PARAMETER WithVirtualDisplays
   Also install the Virtual Display Driver (virtual monitors for display capture).
 
+.PARAMETER NoNdi
+  Build without NDI (display capture only) and skip the NDI SDK/runtime checks entirely.
+
 .PARAMETER SkipPrereqs
   Do not check or install prerequisites; just build (and install if -Install).
 
@@ -38,12 +42,14 @@
 .EXAMPLE
   setup.bat
   setup.bat -Install -WithVirtualDisplays
+  setup.bat -Install -WithVirtualDisplays -NoNdi      (virtual monitor -> SDI only, no NDI at all)
   powershell -ExecutionPolicy Bypass -File setup.ps1 -Install
 #>
 [CmdletBinding()]
 param(
     [switch]$Install,
     [switch]$WithVirtualDisplays,
+    [switch]$NoNdi,
     [switch]$SkipPrereqs,
     [switch]$SkipBuild
 )
@@ -159,28 +165,39 @@ if (-not $SkipPrereqs) {
         $missing += 'Desktop Video'
     }
 
-    # ------------------------------------------------------------ 4. NDI SDK
-    Step 'NDI 6 SDK (headers, needed to build)'
+    # ------------------------------------------------------------ 4. NDI SDK (optional)
+    Step 'NDI 6 SDK (OPTIONAL - only for NDI sources; display capture works without it)'
     $sdk = $null
-    foreach ($cand in @((Get-MachineEnv 'NDI_SDK_DIR'), "$env:ProgramFiles\NDI\NDI 6 SDK", "$env:ProgramFiles\NDI\NDI 5 SDK")) {
-        if ($cand -and (Test-Path (Join-Path $cand 'Include\Processing.NDI.Lib.h'))) { $sdk = $cand; break }
-    }
-    if ($sdk) {
-        Ok $sdk
+    if ($NoNdi) {
+        Ok 'Skipped (-NoNdi): building for display capture only'
     } else {
-        Bad 'NDI SDK not found.'
-        Write-Host '    Download the "NDI SDK" for Windows (free, asks for an e-mail), install it, then run setup again.'
-        Write-Host '    https://ndi.video/for-developers/ndi-sdk/'
-        Start-Process 'https://ndi.video/for-developers/ndi-sdk/'
-        $missing += 'NDI SDK'
+        foreach ($cand in @((Get-MachineEnv 'NDI_SDK_DIR'), "$env:ProgramFiles\NDI\NDI 6 SDK", "$env:ProgramFiles\NDI\NDI 5 SDK")) {
+            if ($cand -and (Test-Path (Join-Path $cand 'Include\Processing.NDI.Lib.h'))) { $sdk = $cand; break }
+        }
+        if ($sdk) {
+            Ok "$sdk (NDI sources will be available)"
+        } else {
+            Warn 'NDI SDK not installed. That is fine if you only need monitor -> SDI.'
+            if (Ask 'Continue WITHOUT NDI (display capture only)?') {
+                $NoNdi = $true
+                Ok 'Building for display capture only'
+            } else {
+                Write-Host '    Download the "NDI SDK" for Windows (free, asks for an e-mail), install it, then run setup again.'
+                Write-Host '    https://ndi.video/for-developers/ndi-sdk/'
+                Start-Process 'https://ndi.video/for-developers/ndi-sdk/'
+                $missing += 'NDI SDK'
+            }
+        }
     }
 
     # ------------------------------------------------------------ 5. NDI runtime
-    Step 'NDI 6 Runtime (needed to run; NDI Tools also includes it)'
+    Step 'NDI 6 Runtime (only for NDI sources; NDI Tools also includes it)'
     $rt = Get-MachineEnv 'NDI_RUNTIME_DIR_V6'
-    if ($rt -and (Test-Path (Join-Path $rt 'Processing.NDI.Lib.x64.dll'))) {
+    if ($NoNdi) {
+        Ok 'Skipped (display capture only)'
+    } elseif ($rt -and (Test-Path (Join-Path $rt 'Processing.NDI.Lib.x64.dll'))) {
         Ok $rt
-    } else {
+    } elseif ($sdk) {
         Warn 'NDI runtime not found. Display capture outputs work without it; NDI sources do not.'
         if (Ask 'Run the NDI 6 Runtime installer now?') {
             $redist = $null
@@ -224,13 +241,15 @@ if (-not $SkipPrereqs) {
 
 # ---------------------------------------------------------------- 7. build + tests
 if (-not $SkipBuild) {
-    Step 'Building (Release, x64)'
+    if ($NoNdi) { Step 'Building (Release, x64, display capture only - no NDI)' } else { Step 'Building (Release, x64)' }
     $running = Get-Process NDI2SDI -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $BuiltExe }
     if ($running) {
         Warn 'NDI2SDI is running from the build folder; the exe is locked. Exit it from the tray first.'
         Pause-Exit 1
     }
-    & cmd.exe /c "`"$Root\build.bat`""
+    $buildArg = ''
+    if ($NoNdi) { $buildArg = ' nondi' }
+    & cmd.exe /c "`"$Root\build.bat`"$buildArg"
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $BuiltExe)) { Bad "Build failed (exit $LASTEXITCODE). See the output above."; Pause-Exit 1 }
     Ok $BuiltExe
 

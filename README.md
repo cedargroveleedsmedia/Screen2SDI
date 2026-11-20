@@ -5,11 +5,27 @@
 > setup (see *Tested with* below). It is shared as-is, with **no warranty and no support**. Test
 > it thoroughly before relying on it for a live service, and keep a fallback ready.
 
-A small Windows tray app that plays up to **three** pictures out as SDI through a Blackmagic DeckLink
-card. Each output takes either a **Windows display** (captured directly, lowest delay; e.g. a virtual
-monitor that WorshipTools Presenter puts an output on) or an **NDI source**. It is built to run
-unattended: it starts with Windows, outputs black while a source is missing, reconnects on its own,
-and never shows error pop-ups.
+**Turn a Windows monitor (including a virtual monitor) into an SDI output** through a Blackmagic
+DeckLink card. A small Windows tray app that plays up to **three** pictures out as SDI at once.
+
+> **NDI is optional.** Despite the name, you do **not** need NDI. The main use is
+> **virtual monitor → SDI**: put your presentation software's output (e.g. WorshipTools Presenter,
+> ProPresenter, PowerPoint) full screen on a virtual monitor, and NDI2SDI sends that monitor out
+> of the DeckLink. No NDI SDK, NDI runtime or network is involved. NDI sources are an extra you can
+> add if the NDI SDK is installed when building.
+
+Each output takes either:
+
+- a **Windows display**: a virtual monitor (no physical screen needed) or a real one, captured
+  directly on the GPU. Lowest delay (~25-30 ms). **Needs no NDI.**
+- an **NDI source** (optional): only in builds made with the NDI SDK.
+
+It is built to run unattended: it starts with Windows, outputs black while a source is missing,
+reconnects on its own, and never shows error pop-ups.
+
+**What you need for monitor → SDI:** Windows 10/11 x64, a DeckLink card with Blackmagic Desktop
+Video, and (for virtual monitors) the free Virtual Display Driver. To build it: Visual Studio 2022
+Build Tools. The setup script handles all of that except Desktop Video (section 0).
 
 | Tray icon | Meaning |
 |---|---|
@@ -43,16 +59,26 @@ On a 64-bit Windows 10/11 PC with a DeckLink card installed:
 
 1. Download this repository: **Code → Download ZIP**, then extract it somewhere permanent
    (for example `C:\NDI2SDI-src`), or `git clone https://github.com/cedargroveleedsmedia/NDI2SDI.git`.
-2. Double-click **`setup.bat`** (or run `setup.bat -Install -WithVirtualDisplays` from a
-   terminal; the options are listed below). Accept the Administrator (UAC) prompt.
+2. Run the setup script and accept the Administrator (UAC) prompt. From a terminal in that folder:
+
+   ```bat
+   rem Virtual monitor -> SDI only (no NDI at all), install and start it:
+   setup.bat -Install -WithVirtualDisplays -NoNdi
+
+   rem Same, but also include NDI sources (needs the NDI SDK installed first):
+   setup.bat -Install -WithVirtualDisplays
+   ```
+
+   Or just double-click **`setup.bat`**: it checks and builds, and if the NDI SDK isn't installed it
+   asks whether to continue without NDI (answer **Y** for monitor → SDI only).
 3. The script checks each prerequisite and installs what it can:
 
    | Prerequisite | What the script does |
    |---|---|
    | Visual Studio 2022 Build Tools (C++ + CMake) | Installs it with winget, or adds missing parts to an existing VS 2022. Large download (10–30 min). |
    | Blackmagic **Desktop Video** | Detects it. If missing, opens the download page and stops: Blackmagic requires a form, so install it yourself, **restart**, and run setup again. |
-   | **NDI 6 SDK** | Detects it. If missing, opens ndi.video and stops (free, asks for an e-mail). Install it and run setup again. |
-   | **NDI 6 Runtime** | Detects it; if missing, offers to run the official runtime installer (you accept NDI's licence there). Not needed if you only use display capture. |
+   | NDI 6 SDK — **optional** | Skipped with `-NoNdi`. Otherwise detected; if missing, asks whether to continue **without NDI** (display capture only) or opens ndi.video so you can install it (free, asks for an e-mail). |
+   | NDI 6 Runtime — **optional** | Only checked when building with NDI. If missing, offers to run the official runtime installer. |
    | Virtual Display Driver | Only with `-WithVirtualDisplays`: installs it with winget. Then set the monitor count (section 2, step 3). |
 
 4. It then builds with `build.bat`, runs the unit tests, and with `-Install` copies the exe to
@@ -67,6 +93,7 @@ instructions in sections 1 and 2 below cover the same ground.
 | *(none)* | Check/install prerequisites, build and test. Nothing is installed to Program Files. |
 | `-Install` | Also install to `C:\Program Files\NDI2SDI` (keeps the previous exe as `.bak`), add the firewall rule, and start the app. |
 | `-WithVirtualDisplays` | Also install the Virtual Display Driver. |
+| `-NoNdi` | Build without NDI (display capture only); skip all NDI checks. |
 | `-SkipPrereqs` | Only build (no admin rights needed unless `-Install`). |
 | `-SkipBuild` | Don't build; with `-Install`, install the last build. |
 
@@ -83,7 +110,7 @@ internet, right-click the ZIP → *Properties* → **Unblock** before extracting
 | What | Notes |
 |---|---|
 | Visual Studio 2022 **or** VS 2022 Build Tools with the *Desktop development with C++* workload (includes *C++ CMake tools* and a Windows SDK) | `winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.CMake.Project --includeRecommended"` |
-| NDI 6 SDK | https://ndi.video/for-developers/ndi-sdk/ (installs to `C:\Program Files\NDI\NDI 6 SDK` and sets `NDI_SDK_DIR`). Only the headers are used. |
+| NDI 6 SDK — **optional** | Only for NDI sources. https://ndi.video/for-developers/ndi-sdk/ (installs to `C:\Program Files\NDI\NDI 6 SDK` and sets `NDI_SDK_DIR`). Only the headers are used. **If it isn't installed, the build automatically makes a display-capture-only version** (CMake prints `NDI: not included`). |
 | Blackmagic Desktop Video (drivers) | The DeckLink API headers are generated at compile time from the type library that Desktop Video registers (`#import` in `src/DeckLink.cpp`), so the separate DeckLink SDK download is not needed. |
 
 ### Build
@@ -92,7 +119,8 @@ Double-click `build.bat`, or from a terminal:
 
 ```bat
 cd C:\path\to\NDI2SDI
-build.bat
+build.bat          & rem includes NDI if the NDI SDK is installed, otherwise display capture only
+build.bat nondi    & rem always display capture only
 ```
 
 That configures CMake (Visual Studio 2022 generator, x64), builds Release and prints the result:
@@ -105,7 +133,7 @@ build\bin\Release\NDI2SDI_tests.exe  unit tests for pixel conversion / JSON (sho
 Manual equivalent (from a *x64 Native Tools* prompt):
 
 ```bat
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64        (add -DNDI2SDI_WITHOUT_NDI=ON for no NDI)
 cmake --build build --config Release
 ```
 
@@ -124,7 +152,7 @@ Visual C++ redistributable dependency.
 1. **Drivers/runtime** (once):
    - Blackmagic **Desktop Video** (https://www.blackmagicdesign.com/support/family/capture-and-playback).
      Restart after installing, then check the card in *Desktop Video Setup*.
-   - The **NDI runtime**. Either NDI Tools (https://ndi.video/tools/), or the stand-alone
+   - **Only if you use NDI sources:** the **NDI runtime**. Either NDI Tools (https://ndi.video/tools/), or the stand-alone
      `NDI 6 Runtime.exe` from the SDK's `Redist` folder (also at http://ndi.link/NDIRedistV6).
      NDI2SDI loads `Processing.NDI.Lib.x64.dll` from `%NDI_RUNTIME_DIR_V6%` at run time, as the NDI
      SDK recommends, so **no NDI DLL is copied next to the exe**.
@@ -236,6 +264,7 @@ src/
   Pipeline.*          one per output: start/stop/retry/watchdog, status, per-minute stats
   NdiLib.*            dynamic NDI runtime loading, shared source finder
   NdiReceiver.*       connect by name, frame-sync, reconnect forever, renders into DeckLink frames
+  NdiReceiverStub.cpp used instead of NdiReceiver.cpp in display-only builds (no NDI SDK)
   Displays.*          active monitors with stable device paths, "Virtual N" labels
   DisplayCapture.*    DXGI Desktop Duplication worker + triple buffer, renders into DeckLink frames
   DeckLink.*          device/format enumeration, scheduled playback (all DeckLink COM code)

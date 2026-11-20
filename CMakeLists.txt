@@ -11,23 +11,37 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-# Static CRT: the exe needs no Visual C++ redistributable on the church PC.
+# Static CRT: the exe needs no Visual C++ redistributable on the playout PC.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# ---- NDI SDK (headers only; the runtime DLL is loaded dynamically at run time) ----
+# ---- NDI SDK (OPTIONAL; headers only, the runtime DLL is loaded dynamically at run time) ----
+# Without the SDK the app is built for display capture only (virtual/physical monitor -> SDI).
+option(NDI2SDI_WITHOUT_NDI "Build without NDI support (display capture only)" OFF)
 set(NDI_SDK_DIR "$ENV{NDI_SDK_DIR}" CACHE PATH "NDI SDK root (contains Include/Processing.NDI.Lib.h)")
-if(NOT EXISTS "${NDI_SDK_DIR}/Include/Processing.NDI.Lib.h")
-  foreach(candidate "C:/Program Files/NDI/NDI 6 SDK" "C:/Program Files/NDI/NDI 5 SDK")
-    if(EXISTS "${candidate}/Include/Processing.NDI.Lib.h")
-      set(NDI_SDK_DIR "${candidate}" CACHE PATH "NDI SDK root" FORCE)
-      break()
-    endif()
-  endforeach()
+set(NDI2SDI_HAS_NDI 0)
+if(NOT NDI2SDI_WITHOUT_NDI)
+  if(NOT EXISTS "${NDI_SDK_DIR}/Include/Processing.NDI.Lib.h")
+    foreach(candidate "C:/Program Files/NDI/NDI 6 SDK" "C:/Program Files/NDI/NDI 5 SDK")
+      if(EXISTS "${candidate}/Include/Processing.NDI.Lib.h")
+        set(NDI_SDK_DIR "${candidate}" CACHE PATH "NDI SDK root" FORCE)
+        break()
+      endif()
+    endforeach()
+  endif()
+  if(EXISTS "${NDI_SDK_DIR}/Include/Processing.NDI.Lib.h")
+    set(NDI2SDI_HAS_NDI 1)
+  else()
+    message(WARNING "NDI SDK not found: building WITHOUT NDI (display capture only). "
+                    "Install the NDI 6 SDK or pass -DNDI_SDK_DIR=<path> to include NDI sources.")
+  endif()
 endif()
-if(NOT EXISTS "${NDI_SDK_DIR}/Include/Processing.NDI.Lib.h")
-  message(FATAL_ERROR "NDI SDK not found. Install the NDI 6 SDK or pass -DNDI_SDK_DIR=<path>.")
+if(NDI2SDI_HAS_NDI)
+  message(STATUS "NDI: included (SDK ${NDI_SDK_DIR})")
+  set(NDI_RECEIVER_SRC src/NdiReceiver.cpp)
+else()
+  message(STATUS "NDI: not included - display capture only")
+  set(NDI_RECEIVER_SRC src/NdiReceiverStub.cpp)
 endif()
-message(STATUS "NDI SDK: ${NDI_SDK_DIR}")
 
 # ---- DeckLink API ----
 # Headers are generated at compile time with #import from the type library that Blackmagic
@@ -42,7 +56,7 @@ add_executable(NDI2SDI WIN32
   src/Autostart.cpp       src/Autostart.h
   src/FrameConvert.cpp    src/FrameConvert.h
   src/NdiLib.cpp          src/NdiLib.h
-  src/NdiReceiver.cpp     src/NdiReceiver.h
+  ${NDI_RECEIVER_SRC}     src/NdiReceiver.h
   src/VideoSource.h
   src/Displays.cpp        src/Displays.h
   src/DisplayCapture.cpp  src/DisplayCapture.h
@@ -54,11 +68,14 @@ add_executable(NDI2SDI WIN32
   res/app.manifest
 )
 
-target_include_directories(NDI2SDI SYSTEM PRIVATE "${NDI_SDK_DIR}/Include")
+if(NDI2SDI_HAS_NDI)
+  target_include_directories(NDI2SDI SYSTEM PRIVATE "${NDI_SDK_DIR}/Include")
+endif()
 target_include_directories(NDI2SDI PRIVATE src res "${CMAKE_CURRENT_BINARY_DIR}")
 
 target_compile_definitions(NDI2SDI PRIVATE
-  UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+  UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0A00 WINVER=0x0A00
+  NDI2SDI_HAS_NDI=${NDI2SDI_HAS_NDI})
 
 target_compile_options(NDI2SDI PRIVATE /W4 /WX /permissive- /utf-8 /Zc:__cplusplus /EHsc /external:W0)
 

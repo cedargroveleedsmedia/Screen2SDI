@@ -13,7 +13,7 @@ enum class SourceType { Ndi, Display };
 struct OutputConfig {
     bool enabled = false;
     std::string name;               // shown in Settings, tooltip and log, e.g. "Main"
-    SourceType sourceType = SourceType::Ndi;
+    SourceType sourceType = SourceType::Display;  // new outputs; saved configs default to NDI (Config.cpp)
     std::string ndiSource;          // e.g. "STUDIO-PC (Presenter)"; may be offline
     // Display capture: the monitor's device path is stable across reboots; the GDI name
     // (\\.\DISPLAYn) is a fallback; the label is only for showing a missing display.

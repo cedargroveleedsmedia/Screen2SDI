@@ -122,6 +122,9 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
     SetUnhandledExceptionFilter(CrashHandler);
     Log::Info("==== NDI2SDI 1.1.0 starting (pid %lu, %s) ====", GetCurrentProcessId(), trayOnly ? "--tray" : "interactive");
     Log::Info("Executable: %s", WideToUtf8(ExePath()).c_str());
+#if !NDI2SDI_HAS_NDI
+    Log::Info("Built without NDI: display capture only");
+#endif
 
     HRESULT coHr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     INITCOMMONCONTROLSEX icc{sizeof(icc), ICC_STANDARD_CLASSES};

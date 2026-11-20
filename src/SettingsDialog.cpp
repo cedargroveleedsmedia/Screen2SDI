@@ -160,7 +160,7 @@ void SettingsDialog::OnInit() {
         SetWindowTextW(Ctl(r, IDC_OFS_NAME), Utf8ToWide(o.name).c_str());
         HWND type = Ctl(r, IDC_OFS_TYPE);
         ComboBox_AddString(type, L"Display");
-        ComboBox_AddString(type, L"NDI");
+        ComboBox_AddString(type, NDI2SDI_HAS_NDI ? L"NDI" : L"NDI (not in this build)");
         ComboBox_SetCurSel(type, o.sourceType == SourceType::Display ? 0 : 1);
         SetWindowTextW(Ctl(r, IDC_OFS_SRC_NDI), Utf8ToWide(o.ndiSource).c_str());
         FillNdi(r, ndiNames);
