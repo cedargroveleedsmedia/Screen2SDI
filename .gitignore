@@ -1,0 +1,17 @@
+# Build output
+build/
+build-*/
+out/
+.vs/
+CMakeSettings.json
+CMakeUserPresets.json
+*.exe
+*.pdb
+*.obj
+*.ilk
+
+# Local backups and runtime files
+_backup/
+*.bak
+*.log
+config.json
