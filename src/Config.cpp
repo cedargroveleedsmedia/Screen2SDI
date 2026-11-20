@@ -22,8 +22,6 @@ bool ReadFileUtf8(const std::wstring& path, std::string* out) {
     return ok;
 }
 
-std::string DefaultName(size_t i) { return "Output " + std::to_string(i + 1); }
-
 void ReadOutput(const JsonValue& o, OutputConfig* out) {
     out->enabled = o.GetBool("enabled", out->enabled);
     out->name = o.GetString("name", out->name);
@@ -47,10 +45,7 @@ std::string OutputConfig::SourceDescription() const {
     return "NDI '" + ndiSource + "'";
 }
 
-Config::Config() {
-    for (size_t i = 0; i < outputs.size(); ++i) outputs[i].name = DefaultName(i);
-    outputs[0].enabled = true;
-}
+std::string DefaultOutputName(size_t i) { return "Output " + std::to_string(i + 1); }
 
 std::wstring ConfigPath() { return AppDataDir() + L"\\config.json"; }
 
@@ -72,16 +67,23 @@ bool LoadConfig(Config* cfg) {
 
     const JsonValue* outs = root.Get("outputs");
     if (outs && outs->IsArray()) {
-        for (size_t i = 0; i < cfg->outputs.size(); ++i) {
-            cfg->outputs[i].enabled = false;
-            if (i < outs->Size() && outs->At(i).IsObject()) ReadOutput(outs->At(i), &cfg->outputs[i]);
-            if (cfg->outputs[i].name.empty()) cfg->outputs[i].name = DefaultName(i);
+        for (size_t i = 0; i < outs->Size() && cfg->outputs.size() < static_cast<size_t>(kMaxOutputs); ++i) {
+            if (!outs->At(i).IsObject()) continue;
+            OutputConfig o;
+            o.name = DefaultOutputName(cfg->outputs.size());
+            ReadOutput(outs->At(i), &o);
+            if (o.name.empty()) o.name = DefaultOutputName(cfg->outputs.size());
+            cfg->outputs.push_back(std::move(o));
         }
+        if (outs->Size() > static_cast<size_t>(kMaxOutputs))
+            Log::Warn("Config has %zu outputs; only the first %d are used", outs->Size(), kMaxOutputs);
     } else {
         // Version 1.0 file: one output described by top-level fields.
-        ReadOutput(root, &cfg->outputs[0]);
-        cfg->outputs[0].enabled = true;
-        cfg->outputs[0].name = DefaultName(0);
+        OutputConfig o;
+        ReadOutput(root, &o);
+        o.enabled = true;
+        o.name = DefaultOutputName(0);
+        cfg->outputs.push_back(std::move(o));
         Log::Info("Config: migrated single-output settings to Output 1");
     }
     cfg->autoStartOutput = root.GetBool("autoStartOutput", true);

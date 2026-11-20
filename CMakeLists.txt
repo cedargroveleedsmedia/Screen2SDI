@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Screen2SDI VERSION 1.2.0 LANGUAGES CXX RC)
+project(Screen2SDI VERSION 1.3.0 LANGUAGES CXX RC)
 
 if(NOT MSVC)
   message(FATAL_ERROR "Screen2SDI must be built with MSVC (Visual Studio 2022 / Build Tools).")
@@ -64,6 +64,7 @@ add_executable(Screen2SDI WIN32
   src/Pipeline.cpp        src/Pipeline.h
   src/TrayApp.cpp         src/TrayApp.h
   src/SettingsDialog.cpp  src/SettingsDialog.h
+  src/VirtualDisplays.cpp src/VirtualDisplays.h
   res/app.rc              res/resource.h
   res/app.manifest
 )
@@ -79,14 +80,14 @@ target_compile_definitions(Screen2SDI PRIVATE
 
 target_compile_options(Screen2SDI PRIVATE /W4 /WX /permissive- /utf-8 /Zc:__cplusplus /EHsc /external:W0)
 
-target_link_libraries(Screen2SDI PRIVATE comctl32 shell32 ole32 oleaut32 advapi32 user32 gdi32 d3d11 dxgi)
+target_link_libraries(Screen2SDI PRIVATE comctl32 shell32 ole32 oleaut32 advapi32 user32 gdi32 d3d11 dxgi setupapi)
 
 # Embed our manifest (common controls v6, per-monitor DPI) instead of the linker's default one.
 target_link_options(Screen2SDI PRIVATE /MANIFEST:EMBED /MANIFESTUAC:NO)
 
 set_target_properties(Screen2SDI PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-# ---- Unit tests for the pure C++ parts (frame conversion, JSON) ----
+# ---- Unit tests for the pure C++ parts (frame conversion, JSON, vdd_settings.xml editing) ----
 add_executable(Screen2SDI_tests tests/test_main.cpp src/FrameConvert.cpp src/Json.cpp)
 target_include_directories(Screen2SDI_tests PRIVATE src)
 target_compile_options(Screen2SDI_tests PRIVATE /W4 /WX /permissive- /utf-8 /EHsc)

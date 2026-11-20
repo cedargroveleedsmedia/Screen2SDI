@@ -25,13 +25,26 @@ enum : UINT {
 };
 }  // namespace
 
-TrayApp::TrayApp() : m_settings(*this) {
-    for (size_t i = 0; i < m_pipelines.size(); ++i) m_pipelines[i] = std::make_unique<Pipeline>(static_cast<int>(i));
-}
+TrayApp::TrayApp() : m_settings(*this) {}
 
 void TrayApp::ApplyAll() {
-    for (size_t i = 0; i < m_pipelines.size(); ++i)
-        m_pipelines[i]->ApplyConfig(m_cfg.outputs[i], m_cfg.prerollFrames, m_configured);
+    // One pipeline per configured output. Outputs removed from the end are shut down (their SDI
+    // connector is released); added ones get a new pipeline. The rest just get their config, and a
+    // pipeline only restarts its output if its own config changed.
+    const size_t n = m_cfg.outputs.size();
+    while (m_pipelines.size() > n) {
+        Log::Info("Removing output %zu", m_pipelines.size());
+        m_pipelines.back()->Shutdown();
+        m_pipelines.pop_back();
+    }
+    while (m_pipelines.size() < n) {
+        auto p = std::make_unique<Pipeline>(static_cast<int>(m_pipelines.size()));
+        p->SetRunEnabled(m_run);
+        if (m_started) p->Start(m_hwnd, WM_APP_STATUS);
+        m_pipelines.push_back(std::move(p));
+    }
+    for (size_t i = 0; i < n; ++i) m_pipelines[i]->ApplyConfig(m_cfg.outputs[i], m_cfg.prerollFrames, m_configured);
+    UpdateTrayIcon();
 }
 
 void TrayApp::SetRunEnabled(bool run) {
@@ -89,6 +102,7 @@ int TrayApp::Run(HINSTANCE inst, bool trayOnly) {
     ApplyAll();
     SetRunEnabled(m_cfg.autoStartOutput);
     for (auto& p : m_pipelines) p->Start(m_hwnd, WM_APP_STATUS);
+    m_started = true;
 
     if (!AddTrayIcon()) {
         // Explorer may not be ready yet right after logon; keep trying.
@@ -127,14 +141,17 @@ bool TrayApp::AddTrayIcon() {
 }
 
 void TrayApp::UpdateTrayIcon() {
-    // Colour = worst enabled output. Tooltip = one short line per output.
+    // Colour = worst enabled output. Tooltip = one short line per output, or a count summary when
+    // there are too many outputs for the tooltip's 128 characters.
     int idx = -1;
     std::string tipText;
-    for (size_t i = 0; i < m_pipelines.size(); ++i) {
+    int counts[3] = {0, 0, 0};  // live, waiting, not running
+    for (size_t i = 0; i < m_pipelines.size() && i < m_cfg.outputs.size(); ++i) {
         PipelineStatus st = m_pipelines[i]->GetStatus();
         if (st.state == PipelineState::Disabled) continue;
         int c = st.state == PipelineState::Live ? 0 : st.state == PipelineState::Waiting ? 1 : 2;
         idx = std::max(idx, c);
+        ++counts[c];
         const char* word = st.state == PipelineState::Live      ? "Live"
                            : st.state == PipelineState::Waiting ? "Black (waiting)"
                            : st.state == PipelineState::Stopped ? "Stopped"
@@ -142,6 +159,12 @@ void TrayApp::UpdateTrayIcon() {
                                                                       : "Error";
         if (!tipText.empty()) tipText += "\n";
         tipText += m_cfg.outputs[i].name + ": " + word;
+    }
+    if (tipText.size() > 120) {
+        tipText = Format("Screen2SDI: %d live", counts[0]);
+        if (counts[1]) tipText += Format(", %d black (waiting)", counts[1]);
+        if (counts[2]) tipText += Format(", %d not running", counts[2]);
+        tipText += "\nOpen Settings for details";
     }
     if (idx < 0) {
         idx = 2;

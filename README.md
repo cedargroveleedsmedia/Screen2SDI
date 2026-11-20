@@ -6,7 +6,9 @@
 > it thoroughly before relying on it for a live service, and keep a fallback ready.
 
 **Turn a Windows monitor (including a virtual monitor) into an SDI output** through a Blackmagic
-DeckLink card. A small Windows tray app that plays up to **three** pictures out as SDI at once.
+DeckLink card. A small Windows tray app that plays **as many pictures out as SDI as you have
+outputs** (up to 16 at once, across one or more DeckLink cards), and can create the virtual monitors
+for them (up to 16).
 
 > **NDI is optional.** You do **not** need NDI. The main use is
 > **virtual monitor → SDI**: put your presentation software's output (e.g. WorshipTools Presenter,
@@ -36,8 +38,23 @@ Build Tools. The setup script handles all of that except Desktop Video (section 
 | Yellow | At least one output is showing **black** while it waits for its source |
 | Red | At least one output is not running: DeckLink error (retrying), stopped, or not configured |
 
-Hover the icon for one line per output, e.g. `Main: Live` / `Live: Black (waiting)`. Settings shows
-the full status of each output.
+Hover the icon for one line per output, e.g. `Main: Live` / `Live: Black (waiting)` (with many
+outputs it shows a count instead, e.g. `5 live, 1 black (waiting)`). Settings shows the full status
+of each output.
+
+### How many outputs and monitors?
+
+| Limit | Set by |
+|---|---|
+| **SDI outputs** | Your DeckLink hardware: one per output connector, across all cards (e.g. Duo 2: up to 4, Quad 2: up to 8). Screen2SDI handles up to **16**. |
+| **Virtual monitors** | Settings → *Virtual monitors* (up to **16**), or `setup.bat -VirtualMonitors N`. |
+| **PC performance** | Each output captures, converts and sends 1080p on its own thread. Static slides cost almost nothing; many outputs of moving video need a capable CPU/GPU. Watch the log's `Stats/min` lines for `late`/`dropped` frames. |
+
+**Get the most SDI outputs out of the card:** in **Blackmagic Desktop Video Setup**, cards like the
+DeckLink Duo 2 / Quad 2 / 8K Pro have a *connector mapping / profile* setting (e.g. "4 sub-devices,
+half duplex" on the Duo 2). Choose the profile that makes every connector a separate **output**
+(not input or "full duplex" pairs), then click **Refresh lists** in Settings. A sub-device that
+offers no output formats (set to input) is hidden from the SDI out list.
 Right-click for **Settings…**, **Start/Stop Output**, **Open Log Folder**, **Run at Windows Startup**
 and **Exit**. Double-click opens Settings.
 
@@ -68,6 +85,9 @@ On a 64-bit Windows 10/11 PC with a DeckLink card installed:
    rem Virtual monitor -> SDI only (no NDI at all), install and start it:
    setup.bat -Install -WithVirtualDisplays -NoNdi
 
+   rem Same, and create 4 virtual monitors (one per output you plan to use):
+   setup.bat -Install -WithVirtualDisplays -VirtualMonitors 4 -NoNdi
+
    rem Same, but also include NDI sources (needs the NDI SDK installed first):
    setup.bat -Install -WithVirtualDisplays
    ```
@@ -97,6 +117,7 @@ instructions in sections 1 and 2 below cover the same ground.
 | `-Install` | Also install to `C:\Program Files\Screen2SDI` (keeps the previous exe as `.bak`), add the firewall rule, and start the app. |
 | `-NoStart` | With `-Install`: install but don't start the app, e.g. while another program (ProPresenter, etc.) still uses the DeckLink. Start it later from `C:\Program Files\Screen2SDI\Screen2SDI.exe`. |
 | `-WithVirtualDisplays` | Also install the Virtual Display Driver. |
+| `-VirtualMonitors N` | Set the number of virtual monitors (1-16) and restart the driver (all virtual monitors blink). Can also be done later in Settings. |
 | `-NoNdi` | Build without NDI (display capture only); skip all NDI checks. |
 | `-SkipPrereqs` | Only build (no admin rights needed unless `-Install`). |
 | `-SkipBuild` | Don't build; with `-Install`, install the last build. |
@@ -163,13 +184,22 @@ Visual C++ redistributable dependency.
 2. **Copy** `Screen2SDI.exe` to a permanent folder, e.g. `C:\Program Files\Screen2SDI\Screen2SDI.exe`.
    That is the only file.
 3. **Virtual monitors** (for display capture without physical screens): install the
-   [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver) and set the
-   number of monitors in `C:\VirtualDisplayDriver\vdd_settings.xml` (`<count>3</count>`, with a
-   `1920x1080` / `60` resolution listed first), then restart the driver
-   (`pnputil /restart-device "ROOT\DISPLAY\0001"` as admin, or Device Manager → Display adapters →
-   Virtual Display Driver → Disable/Enable). In Presenter, put each output full screen on its own
-   virtual monitor. Screen2SDI lists them as **Virtual 1/2/3** (left to right).
-4. **Run it once**. Settings opens on first run. For each of the three rows:
+   [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+   (`setup.bat -WithVirtualDisplays` does this), then set how many you need, one per output:
+   - in Screen2SDI: **Settings → Virtual monitors → number → Apply…** (asks for admin rights), or
+   - `setup.bat -VirtualMonitors 6` (for example), or
+   - by hand: `<monitors><count>6</count></monitors>` in `C:\VirtualDisplayDriver\vdd_settings.xml`,
+     then restart the driver (`pnputil /restart-device "ROOT\DISPLAY\0001"` as admin, or Device
+     Manager → Display adapters → Virtual Display Driver → Disable/Enable).
+
+   Changing the count restarts the driver, so **all** virtual monitors blink for a few seconds
+   (including any another program is using right now) and windows on them may move. Keep a
+   `1920x1080` / `60` resolution listed first in `vdd_settings.xml`. In your presentation software,
+   put each output full screen on its own virtual monitor. Screen2SDI lists them as **Virtual 1, 2,
+   3, …** (left to right). The previous `vdd_settings.xml` is kept as `vdd_settings.xml.bak-<date>`.
+4. **Run it once**. Settings opens on first run, with **one row per SDI output found**, each paired
+   with the next virtual monitor. Use **Add output** / **Add all SDI outputs** / **Remove** to change
+   the rows (up to 16; each row needs its own SDI connector). For each row:
    - **On**, and a **Name** (e.g. `Main`, `Live`; shown in the tooltip, status and log).
    - **Source**: `Display` + the monitor to capture, or `NDI` + the source name (pick it, or type the
      exact name, e.g. `PRESENTER-PC (Main Audience Output)`, if it is offline).
@@ -218,7 +248,8 @@ old exe/folder (e.g. `C:\Program Files\NDI2SDI`) and any `NDI2SDI` firewall rule
 |---|---|
 | *(none)* | Start in the tray; open Settings if there is no config yet. If already running, opens the running copy's Settings. |
 | `--tray` | Start hidden in the tray (used by the startup entry). If already running, does nothing. |
-| `--diag` | Log devices/formats/NDI sources and exit (never enables output). |
+| `--diag` | Log devices/formats/displays/virtual monitor count/NDI sources and exit (never enables output). |
+| `--set-virtual-monitors=N` | As administrator: set the Virtual Display Driver to N monitors (1-16), restart it, and exit. Used by Settings → *Apply…*; never touches the DeckLink. |
 
 ---
 
@@ -228,8 +259,12 @@ old exe/folder (e.g. `C:\Program Files\NDI2SDI`) and any `NDI2SDI` firewall rule
   *Output buffer*, 2–5 frames, default 2). Every `ScheduledFrameCompleted` callback refills that same
   frame and schedules it at the end of the queue. 2 frames is the minimum (one on air, one being
   filled). Raise it only if the log shows late/dropped frames on a busy PC.
-- **Outputs**: each of the three outputs runs on its own thread with its own DeckLink sub-device, so
-  one output failing or restarting never affects the others.
+- **Outputs**: each output (up to 16) runs on its own thread with its own DeckLink sub-device, so
+  one output failing or restarting never affects the others. Adding outputs in Settings starts new
+  ones without touching the existing ones; removing one restarts only the outputs listed after it.
+- **Virtual monitors**: *Apply…* in Settings re-launches `Screen2SDI.exe --set-virtual-monitors=N`
+  as administrator. That edits only the `<monitors><count>` value in `vdd_settings.xml` (after a
+  timestamped backup) and restarts the Virtual Display Driver device (hardware ID `Root\MttVDD`).
 - **Display capture**: DXGI Desktop Duplication grabs the chosen monitor on a worker thread as soon as
   Windows composes a new frame (mouse pointer not included). Each DeckLink frame takes the newest
   capture; while the screen is unchanged the previous conversion is reused, so static slides cost
@@ -277,7 +312,8 @@ tests/    test_main.cpp (pixel conversion + JSON tests)
 src/
   main.cpp            entry, single-instance mutex, --tray/--diag, crash relaunch
   TrayApp.*           hidden window, tray icon + menu, session end, Explorer restarts
-  SettingsDialog.*    modeless Settings window
+  SettingsDialog.*    modeless Settings window: scrolling output rows (add/remove), virtual monitor count
+  VirtualDisplays.*   Virtual Display Driver: read/set the monitor count, restart the driver
   Pipeline.*          one per output: start/stop/retry/watchdog, status, per-minute stats
   NdiLib.*            dynamic NDI runtime loading, shared source finder
   NdiReceiver.*       connect by name, frame-sync, reconnect forever, renders into DeckLink frames
@@ -329,6 +365,9 @@ log (*Open Log Folder*).
 | 11 | Set two outputs to the same SDI out → Save | Not saved; status shows which outputs clash. |
 | 12 | Turn one output off → Save | Only that output stops; the others keep running without a glitch. |
 | 13 | Wait 1+ minute while live | Log has a `Stats/min:` line with `late=0 dropped=0` (occasional late frames under heavy load are tolerated). |
+| 14 | **Add all SDI outputs** → Save | One new row per unused SDI connector; the new outputs start, existing ones keep running. |
+| 15 | **Remove** the last row → Save | Its SDI output goes away; the others keep running. |
+| 16 | Settings → Virtual monitors → change the number → **Apply…** (when nothing important is on the virtual monitors) | Admin prompt; virtual monitors blink; after a few seconds the display lists show the new count. Log: `Virtual monitors: a -> b`. |
 
 ---
 

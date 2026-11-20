@@ -34,6 +34,10 @@
 .PARAMETER WithVirtualDisplays
   Also install the Virtual Display Driver (virtual monitors for display capture).
 
+.PARAMETER VirtualMonitors
+  Set the number of virtual monitors (1-16) and restart the Virtual Display Driver. All virtual
+  monitors blink while it restarts. (Also possible later from Screen2SDI's Settings window.)
+
 .PARAMETER NoNdi
   Build without NDI (display capture only) and skip the NDI SDK/runtime checks entirely.
 
@@ -54,6 +58,7 @@ param(
     [switch]$Install,
     [switch]$NoStart,
     [switch]$WithVirtualDisplays,
+    [ValidateRange(0, 16)][int]$VirtualMonitors = 0,
     [switch]$NoNdi,
     [switch]$SkipPrereqs,
     [switch]$SkipBuild
@@ -106,7 +111,11 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if ($needAdmin -and -not $isAdmin) {
     Step 'Restarting as Administrator (needed to install software)'
     $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$($MyInvocation.MyCommand.Path)`"")
-    foreach ($p in $PSBoundParameters.Keys) { $argList += "-$p" }
+    foreach ($p in $PSBoundParameters.Keys) {
+        $v = $PSBoundParameters[$p]
+        if ($v -is [System.Management.Automation.SwitchParameter]) { if ($v.IsPresent) { $argList += "-$p" } }
+        else { $argList += "-$p"; $argList += "$v" }
+    }
     try {
         Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -Verb RunAs | Out-Null
     } catch {
@@ -234,6 +243,47 @@ if (-not $SkipPrereqs) {
     } else {
         Write-Host '    Not installed. Only needed to capture a screen that has no physical monitor.'
         Write-Host '    Re-run with -WithVirtualDisplays to install it.'
+    }
+
+    if ($VirtualMonitors -gt 0) {
+        Step "Setting the number of virtual monitors to $VirtualMonitors"
+        $xmlPath = $null
+        $reg = Get-ItemProperty 'HKLM:\SOFTWARE\MikeTheTech\VirtualDisplayDriver' -ErrorAction SilentlyContinue
+        if ($reg -and $reg.VDDPATH -and (Test-Path (Join-Path $reg.VDDPATH 'vdd_settings.xml'))) { $xmlPath = Join-Path $reg.VDDPATH 'vdd_settings.xml' }
+        elseif (Test-Path 'C:\VirtualDisplayDriver\vdd_settings.xml') { $xmlPath = 'C:\VirtualDisplayDriver\vdd_settings.xml' }
+        if (-not $xmlPath) {
+            Warn 'vdd_settings.xml not found (is the Virtual Display Driver installed?). Skipped.'
+        } else {
+            $text = [IO.File]::ReadAllText($xmlPath)
+            $rx = [regex]'(?s)(<monitors>.*?<count>\s*)(\d+)(\s*</count>)'
+            $m = $rx.Match($text)
+            if (-not $m.Success) {
+                Warn "No <monitors><count> in $xmlPath. Skipped."
+            } elseif ([int]$m.Groups[2].Value -eq $VirtualMonitors) {
+                Ok "Already $VirtualMonitors"
+            } else {
+                $bak = "$xmlPath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                Copy-Item $xmlPath $bak
+                $new = $text.Substring(0, $m.Groups[2].Index) + $VirtualMonitors + $text.Substring($m.Groups[2].Index + $m.Groups[2].Length)
+                [IO.File]::WriteAllText($xmlPath, $new, (New-Object System.Text.UTF8Encoding($false)))
+                Ok "$($m.Groups[2].Value) -> $VirtualMonitors in $xmlPath (backup: $bak)"
+                $dev = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue | Where-Object { $_.HardwareID -contains 'Root\MttVDD' } | Select-Object -First 1
+                if ($dev) {
+                    Write-Host '    Restarting the Virtual Display Driver (virtual monitors blink)...'
+                    $ErrorActionPreference = 'Continue'
+                    pnputil /restart-device "$($dev.InstanceId)" | Out-Null
+                    $rc = $LASTEXITCODE
+                    $ErrorActionPreference = 'Stop'
+                    if ($rc -ne 0) {
+                        Disable-PnpDevice -InstanceId $dev.InstanceId -Confirm:$false
+                        Enable-PnpDevice -InstanceId $dev.InstanceId -Confirm:$false
+                    }
+                    Ok 'Driver restarted'
+                } else {
+                    Warn 'Driver device not found; the new count applies after a restart of the PC.'
+                }
+            }
+        }
     }
 
     if ($missing.Count -gt 0) {

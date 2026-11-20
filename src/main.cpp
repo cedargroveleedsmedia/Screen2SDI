@@ -13,6 +13,7 @@
 #include "NdiLib.h"
 #include "TrayApp.h"
 #include "Util.h"
+#include "VirtualDisplays.h"
 
 namespace {
 uint64_t g_startMs = 0;
@@ -90,6 +91,13 @@ int RunDiagnostics() {
     for (const auto& d : EnumerateDisplays())
         Log::Info("  %s | %s | %s | %s", d.label.c_str(), d.gdiName.c_str(),
                   d.monitorName.empty() ? "(no name)" : d.monitorName.c_str(), d.devicePath.c_str());
+    int vmon = 0;
+    std::string vErr;
+    if (Vdd::ReadMonitorCount(&vmon, &vErr))
+        Log::Info("Diagnostics: Virtual Display Driver set to %d monitor(s) in %s", vmon,
+                  WideToUtf8(Vdd::SettingsPath()).c_str());
+    else
+        Log::Info("Diagnostics: %s", vErr.c_str());
     Log::Info("Diagnostics: NDI sources (after 5 s discovery)");
     if (!Ndi::Load(&err)) {
         Log::Error("  %s", err.c_str());
@@ -110,6 +118,7 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
     bool trayOnly = false;
     bool diag = false;
     DWORD waitPid = 0;
+    int setVirtualMonitors = 0;
     int argc = 0;
     if (LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc)) {
         for (int i = 1; i < argc; ++i) {
@@ -117,13 +126,26 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
             if (a == L"--tray") trayOnly = true;
             else if (a == L"--diag") diag = true;
             else if (a.rfind(L"--wait-pid=", 0) == 0) waitPid = static_cast<DWORD>(_wtoi(a.c_str() + 11));
+            else if (a.rfind(L"--set-virtual-monitors=", 0) == 0) setVirtualMonitors = _wtoi(a.c_str() + 23);
         }
         LocalFree(argv);
     }
 
+    // Elevated helper started by Settings (or by hand, as administrator): change the number of
+    // Virtual Display Driver monitors and exit. Never touches the DeckLink outputs.
+    if (setVirtualMonitors != 0) {
+        Log::Init(LogDir());
+        Log::Info("==== Screen2SDI 1.3.0 set virtual monitors to %d ====", setVirtualMonitors);
+        std::string err;
+        const bool ok = Vdd::SetMonitorCount(setVirtualMonitors, &err);
+        if (!ok) Log::Error("Virtual monitors: %s", err.c_str());
+        Log::Shutdown();
+        return ok ? 0 : 2;
+    }
+
     if (diag) {
         Log::Init(LogDir());
-        Log::Info("==== Screen2SDI 1.2.0 diagnostics ====");
+        Log::Info("==== Screen2SDI 1.3.0 diagnostics ====");
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         int rc = RunDiagnostics();
         if (SUCCEEDED(hr)) CoUninitialize();
@@ -156,7 +178,7 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
 
     Log::Init(LogDir());
     SetUnhandledExceptionFilter(CrashHandler);
-    Log::Info("==== Screen2SDI 1.2.0 starting (pid %lu, %s) ====", GetCurrentProcessId(), trayOnly ? "--tray" : "interactive");
+    Log::Info("==== Screen2SDI 1.3.0 starting (pid %lu, %s) ====", GetCurrentProcessId(), trayOnly ? "--tray" : "interactive");
     Log::Info("Executable: %s", WideToUtf8(ExePath()).c_str());
 #if !SCREEN2SDI_HAS_NDI
     Log::Info("Built without NDI: display capture only");

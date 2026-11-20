@@ -2,8 +2,8 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include <array>
 #include <memory>
+#include <vector>
 
 #include "Config.h"
 #include "Pipeline.h"
@@ -19,7 +19,11 @@ public:
     int Run(HINSTANCE inst, bool trayOnly);
 
     HINSTANCE instance() const { return m_inst; }
-    PipelineStatus OutputStatus(int index) { return m_pipelines[static_cast<size_t>(index)]->GetStatus(); }
+    int OutputCount() const { return static_cast<int>(m_pipelines.size()); }
+    PipelineStatus OutputStatus(int index) {
+        if (index < 0 || index >= OutputCount()) return {};
+        return m_pipelines[static_cast<size_t>(index)]->GetStatus();
+    }
     const Config& config() const { return m_cfg; }
     bool configured() const { return m_configured; }
     void OnSettingsSaved(const Config& cfg, bool runAtStartup);
@@ -40,7 +44,8 @@ private:
     bool m_iconAdded = false;
     HICON m_icons[3] = {};  // green, yellow, red
     UINT m_taskbarCreatedMsg = 0;
-    std::array<std::unique_ptr<Pipeline>, kMaxOutputs> m_pipelines;
+    std::vector<std::unique_ptr<Pipeline>> m_pipelines;  // one per configured output, same order
+    bool m_started = false;  // pipelines' threads are running (new ones start immediately)
     bool m_run = false;
     Config m_cfg;
     bool m_configured = false;

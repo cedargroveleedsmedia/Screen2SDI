@@ -1,11 +1,13 @@
 #pragma once
-#include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 // FourCC of bmdModeHD1080p2997 ('Hp29').
 constexpr uint32_t kDefaultDisplayMode = 0x48703239;
-constexpr int kMaxOutputs = 3;
+// Upper limit on outputs. Blackmagic cards have up to 8 SDI outputs each, so this covers two
+// 8-output cards (or any mix). Each output runs on its own thread.
+constexpr int kMaxOutputs = 16;
 
 enum class SourceType { Ndi, Display };
 
@@ -37,15 +39,14 @@ struct OutputConfig {
 };
 
 struct Config {
-    std::array<OutputConfig, kMaxOutputs> outputs;
+    std::vector<OutputConfig> outputs;  // 0..kMaxOutputs, in Settings order
     bool autoStartOutput = true;
     int prerollFrames = 2;          // DeckLink output queue depth (2..5); lower = less latency
-
-    Config();
 };
 
+std::string DefaultOutputName(size_t index);  // "Output 1", ...
 std::wstring ConfigPath();
-// Returns true if a config file existed and was read. On a missing or corrupt file, *cfg gets defaults.
-// A single-output config from version 1.0 is migrated into outputs[0].
+// Returns true if a config file existed and was read. On a missing or corrupt file, *cfg gets defaults
+// (no outputs). A single-output config from version 1.0 is migrated into outputs[0].
 bool LoadConfig(Config* cfg);
 bool SaveConfig(const Config& cfg);

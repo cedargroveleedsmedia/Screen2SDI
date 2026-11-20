@@ -7,6 +7,7 @@
 
 #include "FrameConvert.h"
 #include "Json.h"
+#include "VirtualDisplays.h"
 
 static int g_failures = 0;
 #define CHECK(cond)                                                     \
@@ -132,6 +133,26 @@ static void TestJson() {
     CHECK(!JsonValue::Parse("", &back, &err));
 }
 
+static void TestVddCount() {
+    const std::string xml =
+        "<?xml version='1.0'?>\n<vdd_settings>\n    <monitors>\n        <count>3</count>\n    </monitors>\n"
+        "    <resolutions><resolution><width>1920</width><count>9</count></resolution></resolutions>\n"
+        "</vdd_settings>\n";
+    int n = 0;
+    CHECK(Vdd::ParseMonitorCount(xml, &n) && n == 3);
+    std::string out;
+    CHECK(Vdd::ReplaceMonitorCount(xml, 12, &out));
+    CHECK(Vdd::ParseMonitorCount(out, &n) && n == 12);
+    CHECK(out.find("<count>12</count>") != std::string::npos);
+    CHECK(out.find("<count>9</count>") != std::string::npos);  // other <count> tags untouched
+    CHECK(out.size() == xml.size() + 1);                        // nothing else changed
+    CHECK(!Vdd::ReplaceMonitorCount(xml, 0, &out));             // out of range
+    CHECK(!Vdd::ReplaceMonitorCount(xml, Vdd::kMaxMonitors + 1, &out));
+    CHECK(!Vdd::ParseMonitorCount("<vdd_settings><count>2</count></vdd_settings>", &n));  // not inside <monitors>
+    CHECK(!Vdd::ParseMonitorCount("<monitors><count></count></monitors>", &n));
+    CHECK(Vdd::ParseMonitorCount("<monitors><count> 4</count></monitors>", &n) && n == 4);
+}
+
 int main() {
     TestBgraSameSize();
     TestPrimaries();
@@ -140,6 +161,7 @@ int main() {
     TestLetterbox();
     TestOddAndDegenerate();
     TestJson();
+    TestVddCount();
     if (g_failures == 0) std::printf("All tests passed\n");
     return g_failures == 0 ? 0 : 1;
 }
