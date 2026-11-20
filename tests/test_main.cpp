@@ -1,5 +1,5 @@
 // Small self-checking tests for the pure-C++ parts (no NDI or DeckLink needed).
-// Build target: NDI2SDI_tests. Exit code 0 = all passed.
+// Build target: Screen2SDI_tests. Exit code 0 = all passed.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

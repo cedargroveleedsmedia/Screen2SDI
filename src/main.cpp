@@ -5,6 +5,8 @@
 
 #include <string>
 
+#include "Autostart.h"
+#include "Config.h"
 #include "DeckLink.h"
 #include "Displays.h"
 #include "Log.h"
@@ -14,6 +16,40 @@
 
 namespace {
 uint64_t g_startMs = 0;
+
+// One-time upgrade from the app's old name (NDI2SDI, up to 1.1): copy its settings and move its
+// Windows startup entry to this exe. The old settings folder is left in place as a backup.
+void MigrateFromNdi2Sdi() {
+    const std::wstring newCfg = ConfigPath();
+    const std::wstring newDir = AppDataDir();
+    const std::wstring oldCfg = newDir.substr(0, newDir.find_last_of(L'\\')) + L"\\NDI2SDI\\config.json";
+    if (GetFileAttributesW(newCfg.c_str()) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(oldCfg.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        if (CopyFileW(oldCfg.c_str(), newCfg.c_str(), TRUE))
+            Log::Info("Upgrade: copied settings from %s (old folder kept as a backup)", WideToUtf8(oldCfg).c_str());
+        else
+            Log::Error("Upgrade: could not copy settings from %s (error %lu)", WideToUtf8(oldCfg).c_str(),
+                       GetLastError());
+    }
+
+    HKEY key = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0,
+                      KEY_QUERY_VALUE | KEY_SET_VALUE, &key) == ERROR_SUCCESS) {
+        const bool hadOld = RegQueryValueExW(key, L"NDI2SDI", nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS;
+        if (hadOld) RegDeleteValueW(key, L"NDI2SDI");
+        RegCloseKey(key);
+        if (hadOld) {
+            Log::Info("Upgrade: replaced the old NDI2SDI startup entry");
+            SetRunAtStartup(true);
+        }
+    }
+
+    if (HANDLE old = OpenMutexW(SYNCHRONIZE, FALSE, L"Local\\NDI2SDI.SingleInstance")) {
+        CloseHandle(old);
+        Log::Warn("Upgrade: the old NDI2SDI app is still running and may be using the DeckLink outputs; "
+                  "exit it from its tray icon");
+    }
+}
 
 // Unattended operation: if we ever crash after running for a while, log it and relaunch ourselves
 // (in the tray) so the SDI output comes back without anyone touching the PC.
@@ -87,7 +123,7 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
 
     if (diag) {
         Log::Init(LogDir());
-        Log::Info("==== NDI2SDI 1.0.0 diagnostics ====");
+        Log::Info("==== Screen2SDI 1.2.0 diagnostics ====");
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         int rc = RunDiagnostics();
         if (SUCCEEDED(hr)) CoUninitialize();
@@ -103,7 +139,7 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
         }
     }
 
-    HANDLE mutex = CreateMutexW(nullptr, FALSE, L"Local\\NDI2SDI.SingleInstance");
+    HANDLE mutex = CreateMutexW(nullptr, FALSE, L"Local\\Screen2SDI.SingleInstance");
     if (mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
         // Another copy is running: ask it to show Settings (unless this is just the startup entry).
         if (!trayOnly) {
@@ -120,11 +156,12 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
 
     Log::Init(LogDir());
     SetUnhandledExceptionFilter(CrashHandler);
-    Log::Info("==== NDI2SDI 1.1.0 starting (pid %lu, %s) ====", GetCurrentProcessId(), trayOnly ? "--tray" : "interactive");
+    Log::Info("==== Screen2SDI 1.2.0 starting (pid %lu, %s) ====", GetCurrentProcessId(), trayOnly ? "--tray" : "interactive");
     Log::Info("Executable: %s", WideToUtf8(ExePath()).c_str());
-#if !NDI2SDI_HAS_NDI
+#if !SCREEN2SDI_HAS_NDI
     Log::Info("Built without NDI: display capture only");
 #endif
+    MigrateFromNdi2Sdi();
 
     HRESULT coHr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
     INITCOMMONCONTROLSEX icc{sizeof(icc), ICC_STANDARD_CLASSES};
@@ -137,7 +174,7 @@ int WINAPI wWinMain(_In_ HINSTANCE inst, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ in
     }
 
     if (SUCCEEDED(coHr)) CoUninitialize();
-    Log::Info("==== NDI2SDI exited (code %d) ====", rc);
+    Log::Info("==== Screen2SDI exited (code %d) ====", rc);
     Log::Shutdown();
     if (mutex) CloseHandle(mutex);
     return rc;

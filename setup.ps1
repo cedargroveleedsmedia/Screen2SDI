@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  NDI2SDI Windows setup: checks/installs prerequisites, builds, and (optionally) installs the app.
+  Screen2SDI Windows setup: checks/installs prerequisites, builds, and (optionally) installs the app.
 
 .DESCRIPTION
   EXPERIMENTAL. Read README.md first.
@@ -18,14 +18,14 @@
        installer (from the SDK's Redist folder, or downloaded from ndi.link).
     6. Virtual Display Driver (only with -WithVirtualDisplays): installs it with winget.
     7. Builds with build.bat and runs the unit tests.
-    8. With -Install: copies NDI2SDI.exe to "C:\Program Files\NDI2SDI", adds a Windows Firewall
+    8. With -Install: copies Screen2SDI.exe to "C:\Program Files\Screen2SDI", adds a Windows Firewall
        rule (Private networks) for NDI discovery, and starts the app as the signed-in user.
 
   Run it again after installing anything it asked you to install by hand. Every step that is
   already done is skipped.
 
 .PARAMETER Install
-  Copy the built exe to C:\Program Files\NDI2SDI, add the firewall rule and start it.
+  Copy the built exe to C:\Program Files\Screen2SDI, add the firewall rule and start it.
 
 .PARAMETER WithVirtualDisplays
   Also install the Virtual Display Driver (virtual monitors for display capture).
@@ -56,9 +56,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$InstallDir = Join-Path $env:ProgramFiles 'NDI2SDI'
-$BuiltExe = Join-Path $Root 'build\bin\Release\NDI2SDI.exe'
-$TestsExe = Join-Path $Root 'build\bin\Release\NDI2SDI_tests.exe'
+$InstallDir = Join-Path $env:ProgramFiles 'Screen2SDI'
+$BuiltExe = Join-Path $Root 'build\bin\Release\Screen2SDI.exe'
+$TestsExe = Join-Path $Root 'build\bin\Release\Screen2SDI_tests.exe'
 $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $VsSetup = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\setup.exe'
 $VsComponents = @(
@@ -85,12 +85,12 @@ function Get-MachineEnv($name) {
 }
 
 Write-Host '------------------------------------------------------------------' -ForegroundColor Yellow
-Write-Host ' NDI2SDI setup  -  EXPERIMENTAL software, no warranty. See README.md' -ForegroundColor Yellow
+Write-Host ' Screen2SDI setup  -  EXPERIMENTAL software, no warranty. See README.md' -ForegroundColor Yellow
 Write-Host '------------------------------------------------------------------' -ForegroundColor Yellow
 
 # ---------------------------------------------------------------- 1. basics + elevation
 Step 'Checking Windows'
-if (-not [Environment]::Is64BitOperatingSystem) { Bad 'NDI2SDI needs 64-bit Windows 10 or 11.'; Pause-Exit 1 }
+if (-not [Environment]::Is64BitOperatingSystem) { Bad 'Screen2SDI needs 64-bit Windows 10 or 11.'; Pause-Exit 1 }
 $os = Get-CimInstance Win32_OperatingSystem
 Ok "$($os.Caption) build $($os.BuildNumber)"
 if ([int]$os.BuildNumber -lt 17763) { Warn 'Windows 10 1809 or newer is recommended.' }
@@ -242,9 +242,9 @@ if (-not $SkipPrereqs) {
 # ---------------------------------------------------------------- 7. build + tests
 if (-not $SkipBuild) {
     if ($NoNdi) { Step 'Building (Release, x64, display capture only - no NDI)' } else { Step 'Building (Release, x64)' }
-    $running = Get-Process NDI2SDI -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $BuiltExe }
+    $running = Get-Process Screen2SDI -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $BuiltExe }
     if ($running) {
-        Warn 'NDI2SDI is running from the build folder; the exe is locked. Exit it from the tray first.'
+        Warn 'Screen2SDI is running from the build folder; the exe is locked. Exit it from the tray first.'
         Pause-Exit 1
     }
     $buildArg = ''
@@ -266,10 +266,11 @@ if (-not $SkipBuild) {
 if ($Install) {
     Step "Installing to $InstallDir"
     if (-not (Test-Path $BuiltExe)) { Bad "No built exe at $BuiltExe. Run without -SkipBuild."; Pause-Exit 1 }
-    $target = Join-Path $InstallDir 'NDI2SDI.exe'
-    $wasRunning = Get-Process NDI2SDI -ErrorAction SilentlyContinue
+    $target = Join-Path $InstallDir 'Screen2SDI.exe'
+    # NDI2SDI is this app's old name (up to 1.1). It must not run alongside the new one.
+    $wasRunning = Get-Process Screen2SDI, NDI2SDI -ErrorAction SilentlyContinue
     if ($wasRunning) {
-        Warn 'NDI2SDI is running. It will be closed so the exe can be replaced (SDI output stops briefly).'
+        Warn "$((($wasRunning | Select-Object -ExpandProperty ProcessName -Unique) -join ' and ')) is running. It will be closed so the new version can take over (SDI output stops briefly)."
         if (-not (Ask 'Continue?')) { Pause-Exit 1 }
         $wasRunning | Stop-Process -Force
         Start-Sleep -Milliseconds 800
@@ -284,16 +285,24 @@ if ($Install) {
     Ok $target
 
     Step 'Windows Firewall rule (Private networks, for NDI discovery)'
-    if (-not (Get-NetFirewallRule -DisplayName 'NDI2SDI' -ErrorAction SilentlyContinue)) {
-        New-NetFirewallRule -DisplayName 'NDI2SDI' -Direction Inbound -Program $target -Action Allow -Profile Private | Out-Null
+    if (-not (Get-NetFirewallRule -DisplayName 'Screen2SDI' -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName 'Screen2SDI' -Direction Inbound -Program $target -Action Allow -Profile Private | Out-Null
         Ok 'Rule added'
     } else { Ok 'Rule already exists' }
 
-    Step 'Starting NDI2SDI as the signed-in user'
+    Step 'Starting Screen2SDI as the signed-in user'
     # explorer.exe starts it un-elevated in the user's session, so the tray icon and the
     # "Run at Windows startup" entry (HKCU) belong to the person at the desk, not the admin.
     Start-Process -FilePath 'explorer.exe' -ArgumentList "`"$target`""
     Ok 'Started. Settings opens on the first run; see README section 2, step 4.'
+
+    $oldDir = Join-Path $env:ProgramFiles 'NDI2SDI'
+    if (Test-Path $oldDir) {
+        Write-Host ''
+        Write-Host "    Note: the old version (NDI2SDI) is still in $oldDir." -ForegroundColor Yellow
+        Write-Host '    Screen2SDI copied its settings and took over its startup entry. Once the new version' -ForegroundColor Yellow
+        Write-Host '    works, you can delete that folder (and the "NDI2SDI" firewall rule, if any).' -ForegroundColor Yellow
+    }
 }
 
 Write-Host ''

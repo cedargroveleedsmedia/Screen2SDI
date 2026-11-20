@@ -18,7 +18,7 @@ int g_fileDay = 0;  // yyyymmdd of the open file
 
 int DayKey(const SYSTEMTIME& st) { return st.wYear * 10000 + st.wMonth * 100 + st.wDay; }
 
-// Deletes NDI2SDI_*.log files older than the last 7 days (today plus the 6 before it).
+// Deletes Screen2SDI_*.log files older than the last 7 days (today plus the 6 before it).
 void PurgeOldLogs(const SYSTEMTIME& now) {
     FILETIME ft;
     SystemTimeToFileTime(&now, &ft);
@@ -31,10 +31,10 @@ void PurgeOldLogs(const SYSTEMTIME& now) {
     SYSTEMTIME cutoff;
     FileTimeToSystemTime(&ft, &cutoff);
     wchar_t cutoffName[64];
-    swprintf_s(cutoffName, L"NDI2SDI_%04u-%02u-%02u.log", cutoff.wYear, cutoff.wMonth, cutoff.wDay);
+    swprintf_s(cutoffName, L"Screen2SDI_%04u-%02u-%02u.log", cutoff.wYear, cutoff.wMonth, cutoff.wDay);
 
     WIN32_FIND_DATAW fd;
-    HANDLE h = FindFirstFileW((g_dir + L"\\NDI2SDI_????-??-??.log").c_str(), &fd);
+    HANDLE h = FindFirstFileW((g_dir + L"\\Screen2SDI_????-??-??.log").c_str(), &fd);
     if (h == INVALID_HANDLE_VALUE) return;
     std::vector<std::wstring> old;
     do {
@@ -55,7 +55,7 @@ void EnsureFile(const SYSTEMTIME& st) {
     if (g_dir.empty()) return;
     CreateDirectoryW(g_dir.c_str(), nullptr);
     wchar_t name[64];
-    swprintf_s(name, L"\\NDI2SDI_%04u-%02u-%02u.log", st.wYear, st.wMonth, st.wDay);
+    swprintf_s(name, L"\\Screen2SDI_%04u-%02u-%02u.log", st.wYear, st.wMonth, st.wDay);
     g_file = _wfsopen((g_dir + name).c_str(), L"ab", _SH_DENYNO);
     if (g_file && _fseeki64(g_file, 0, SEEK_END) == 0 && _ftelli64(g_file) == 0) fwrite("\xEF\xBB\xBF", 1, 3, g_file);  // UTF-8 BOM for Notepad
     g_fileDay = day;

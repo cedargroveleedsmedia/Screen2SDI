@@ -40,7 +40,7 @@ void TrayApp::SetRunEnabled(bool run) {
 }
 
 UINT TrayApp::ShowSettingsMessage() {
-    static UINT msg = RegisterWindowMessageW(L"NDI2SDI.ShowSettings");
+    static UINT msg = RegisterWindowMessageW(L"Screen2SDI.ShowSettings");
     return msg;
 }
 
@@ -57,7 +57,7 @@ int TrayApp::Run(HINSTANCE inst, bool trayOnly) {
         return 1;
     }
     // A hidden top-level window (not message-only) so we receive TaskbarCreated and session-end broadcasts.
-    m_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, kWindowClass, L"NDI2SDI", WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, inst,
+    m_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, kWindowClass, L"Screen2SDI", WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, inst,
                              this);
     if (!m_hwnd) {
         Log::Error("CreateWindow failed (%lu)", GetLastError());
@@ -116,7 +116,7 @@ bool TrayApp::AddTrayIcon() {
     m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     m_nid.uCallbackMessage = WM_APP_TRAY;
     m_nid.hIcon = m_icons[2];
-    wcscpy_s(m_nid.szTip, L"NDI2SDI - starting");
+    wcscpy_s(m_nid.szTip, L"Screen2SDI - starting");
     Shell_NotifyIconW(NIM_DELETE, &m_nid);  // in case a stale icon is left from Explorer restart
     if (!Shell_NotifyIconW(NIM_ADD, &m_nid)) return false;
     m_nid.uVersion = NOTIFYICON_VERSION_4;
@@ -145,7 +145,7 @@ void TrayApp::UpdateTrayIcon() {
     }
     if (idx < 0) {
         idx = 2;
-        tipText = m_configured ? "NDI2SDI - all outputs are off" : "NDI2SDI - not configured";
+        tipText = m_configured ? "Screen2SDI - all outputs are off" : "Screen2SDI - not configured";
     }
     if (m_iconAdded) {
         m_nid.uFlags = NIF_ICON | NIF_TIP | NIF_SHOWTIP;

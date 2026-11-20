@@ -1,6 +1,6 @@
 @echo off
-rem Builds NDI2SDI (Release, x64) with Visual Studio 2022 or the VS 2022 Build Tools.
-rem Output: build\bin\Release\NDI2SDI.exe
+rem Builds Screen2SDI (Release, x64) with Visual Studio 2022 or the VS 2022 Build Tools.
+rem Output: build\bin\Release\Screen2SDI.exe
 rem   build.bat         include NDI if the NDI SDK is installed, otherwise display capture only
 rem   build.bat nondi   always build without NDI (display capture only)
 setlocal
@@ -20,7 +20,7 @@ set "PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer;%PATH%"
 call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 
 cd /d "%~dp0"
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DNDI2SDI_WITHOUT_NDI=%NONDI% || exit /b 1
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DSCREEN2SDI_WITHOUT_NDI=%NONDI% || exit /b 1
 cmake --build build --config Release || exit /b 1
 echo.
-echo Built: %~dp0build\bin\Release\NDI2SDI.exe
+echo Built: %~dp0build\bin\Release\Screen2SDI.exe

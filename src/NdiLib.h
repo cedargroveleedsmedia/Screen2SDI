@@ -2,13 +2,13 @@
 #include <string>
 #include <vector>
 
-// NDI2SDI_HAS_NDI is set by CMake: 1 when the NDI SDK headers were found, 0 for a
+// SCREEN2SDI_HAS_NDI is set by CMake: 1 when the NDI SDK headers were found, 0 for a
 // display-capture-only build (then NDI sources are simply unavailable at run time).
-#ifndef NDI2SDI_HAS_NDI
-#define NDI2SDI_HAS_NDI 1
+#ifndef SCREEN2SDI_HAS_NDI
+#define SCREEN2SDI_HAS_NDI 1
 #endif
 
-#if NDI2SDI_HAS_NDI
+#if SCREEN2SDI_HAS_NDI
 #include <Processing.NDI.Lib.h>
 #endif
 
@@ -18,7 +18,7 @@ namespace Ndi {
 // Idempotent. Returns false (with a message) if the runtime is missing or unusable, or if this
 // build has no NDI support.
 bool Load(std::string* error);
-#if NDI2SDI_HAS_NDI
+#if SCREEN2SDI_HAS_NDI
 // nullptr until Load() succeeds.
 const NDIlib_v6* Api();
 #endif

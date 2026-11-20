@@ -2,7 +2,7 @@
 #include <sal.h>
 #include <string>
 
-// Daily log files in %APPDATA%\NDI2SDI\logs\NDI2SDI_YYYY-MM-DD.log, keeping the last 7 days.
+// Daily log files in %APPDATA%\Screen2SDI\logs\Screen2SDI_YYYY-MM-DD.log, keeping the last 7 days.
 // Thread-safe. Never throws, never shows UI.
 namespace Log {
 void Init(const std::wstring& dir);

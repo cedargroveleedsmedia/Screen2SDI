@@ -1,4 +1,4 @@
-# NDI2SDI
+# Screen2SDI
 
 > [!WARNING]
 > **Experimental.** This was built for one church's playout PC and has been tested on a single
@@ -8,11 +8,14 @@
 **Turn a Windows monitor (including a virtual monitor) into an SDI output** through a Blackmagic
 DeckLink card. A small Windows tray app that plays up to **three** pictures out as SDI at once.
 
-> **NDI is optional.** Despite the name, you do **not** need NDI. The main use is
+> **NDI is optional.** You do **not** need NDI. The main use is
 > **virtual monitor → SDI**: put your presentation software's output (e.g. WorshipTools Presenter,
-> ProPresenter, PowerPoint) full screen on a virtual monitor, and NDI2SDI sends that monitor out
+> ProPresenter, PowerPoint) full screen on a virtual monitor, and Screen2SDI sends that monitor out
 > of the DeckLink. No NDI SDK, NDI runtime or network is involved. NDI sources are an extra you can
 > add if the NDI SDK is installed when building.
+
+*Formerly called **NDI2SDI** (up to version 1.1). Upgrading is automatic; see
+[Upgrading from NDI2SDI](#upgrading-from-ndi2sdi).*
 
 Each output takes either:
 
@@ -58,7 +61,7 @@ Other DeckLink models, Windows 11 and other NDI senders should work but have **n
 On a 64-bit Windows 10/11 PC with a DeckLink card installed:
 
 1. Download this repository: **Code → Download ZIP**, then extract it somewhere permanent
-   (for example `C:\NDI2SDI-src`), or `git clone https://github.com/cedargroveleedsmedia/NDI2SDI.git`.
+   (for example `C:\Screen2SDI-src`), or `git clone https://github.com/cedargroveleedsmedia/Screen2SDI.git`.
 2. Run the setup script and accept the Administrator (UAC) prompt. From a terminal in that folder:
 
    ```bat
@@ -82,7 +85,7 @@ On a 64-bit Windows 10/11 PC with a DeckLink card installed:
    | Virtual Display Driver | Only with `-WithVirtualDisplays`: installs it with winget. Then set the monitor count (section 2, step 3). |
 
 4. It then builds with `build.bat`, runs the unit tests, and with `-Install` copies the exe to
-   `C:\Program Files\NDI2SDI`, adds a firewall rule for NDI (Private networks only) and starts it.
+   `C:\Program Files\Screen2SDI`, adds a firewall rule for NDI (Private networks only) and starts it.
 5. Continue with **section 2, steps 3–6** (virtual monitors, Settings, auto sign-in, power plan).
 
 Re-running the script is safe: finished steps are skipped. If a step fails, the manual
@@ -91,7 +94,7 @@ instructions in sections 1 and 2 below cover the same ground.
 | Option | Effect |
 |---|---|
 | *(none)* | Check/install prerequisites, build and test. Nothing is installed to Program Files. |
-| `-Install` | Also install to `C:\Program Files\NDI2SDI` (keeps the previous exe as `.bak`), add the firewall rule, and start the app. |
+| `-Install` | Also install to `C:\Program Files\Screen2SDI` (keeps the previous exe as `.bak`), add the firewall rule, and start the app. |
 | `-WithVirtualDisplays` | Also install the Virtual Display Driver. |
 | `-NoNdi` | Build without NDI (display capture only); skip all NDI checks. |
 | `-SkipPrereqs` | Only build (no admin rights needed unless `-Install`). |
@@ -118,7 +121,7 @@ internet, right-click the ZIP → *Properties* → **Unblock** before extracting
 Double-click `build.bat`, or from a terminal:
 
 ```bat
-cd C:\path\to\NDI2SDI
+cd C:\path\to\Screen2SDI
 build.bat          & rem includes NDI if the NDI SDK is installed, otherwise display capture only
 build.bat nondi    & rem always display capture only
 ```
@@ -126,14 +129,14 @@ build.bat nondi    & rem always display capture only
 That configures CMake (Visual Studio 2022 generator, x64), builds Release and prints the result:
 
 ```
-build\bin\Release\NDI2SDI.exe        the app (the only file you need to deploy)
-build\bin\Release\NDI2SDI_tests.exe  unit tests for pixel conversion / JSON (should print "All tests passed")
+build\bin\Release\Screen2SDI.exe        the app (the only file you need to deploy)
+build\bin\Release\Screen2SDI_tests.exe  unit tests for pixel conversion / JSON (should print "All tests passed")
 ```
 
 Manual equivalent (from a *x64 Native Tools* prompt):
 
 ```bat
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64        (add -DNDI2SDI_WITHOUT_NDI=ON for no NDI)
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64        (add -DSCREEN2SDI_WITHOUT_NDI=ON for no NDI)
 cmake --build build --config Release
 ```
 
@@ -154,9 +157,9 @@ Visual C++ redistributable dependency.
      Restart after installing, then check the card in *Desktop Video Setup*.
    - **Only if you use NDI sources:** the **NDI runtime**. Either NDI Tools (https://ndi.video/tools/), or the stand-alone
      `NDI 6 Runtime.exe` from the SDK's `Redist` folder (also at http://ndi.link/NDIRedistV6).
-     NDI2SDI loads `Processing.NDI.Lib.x64.dll` from `%NDI_RUNTIME_DIR_V6%` at run time, as the NDI
+     Screen2SDI loads `Processing.NDI.Lib.x64.dll` from `%NDI_RUNTIME_DIR_V6%` at run time, as the NDI
      SDK recommends, so **no NDI DLL is copied next to the exe**.
-2. **Copy** `NDI2SDI.exe` to a permanent folder, e.g. `C:\Program Files\NDI2SDI\NDI2SDI.exe`.
+2. **Copy** `Screen2SDI.exe` to a permanent folder, e.g. `C:\Program Files\Screen2SDI\Screen2SDI.exe`.
    That is the only file.
 3. **Virtual monitors** (for display capture without physical screens): install the
    [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver) and set the
@@ -164,7 +167,7 @@ Visual C++ redistributable dependency.
    `1920x1080` / `60` resolution listed first), then restart the driver
    (`pnputil /restart-device "ROOT\DISPLAY\0001"` as admin, or Device Manager → Display adapters →
    Virtual Display Driver → Disable/Enable). In Presenter, put each output full screen on its own
-   virtual monitor. NDI2SDI lists them as **Virtual 1/2/3** (left to right).
+   virtual monitor. Screen2SDI lists them as **Virtual 1/2/3** (left to right).
 4. **Run it once**. Settings opens on first run. For each of the three rows:
    - **On**, and a **Name** (e.g. `Main`, `Live`; shown in the tooltip, status and log).
    - **Source**: `Display` + the monitor to capture, or `NDI` + the source name (pick it, or type the
@@ -173,14 +176,14 @@ Visual C++ redistributable dependency.
    - **SDI out** and **Format**, e.g. `Projector` and `1080p59.94`. Each output needs its own connector.
    - Leave **Start output automatically** and **Run at Windows startup** ticked.
    - Click **Save**. Changed outputs restart immediately; unchanged ones keep running.
-5. If Windows Firewall asks about NDI2SDI, **allow it on Private networks**. NDI discovery
+5. If Windows Firewall asks about Screen2SDI, **allow it on Private networks**. NDI discovery
    needs this when the source is on another PC.
 6. Make the PC boot straight to the desktop so the tray app starts with no clicks:
    - **Automatic sign-in**: the app runs at user logon (HKCU Run key). Use Sysinternals
      *Autologon* or `netplwiz`.
    - Power plan: **never sleep**; turn off USB/PCIe power saving if possible.
    - Windows Update: set *active hours* to cover services so it never restarts mid-service.
-7. Optional: `NDI2SDI.exe --diag` writes the DeckLink devices, formats, Windows displays and visible
+7. Optional: `Screen2SDI.exe --diag` writes the DeckLink devices, formats, Windows displays and visible
    NDI sources to the log without touching the output (safe while the app runs). Use it to check names after hardware changes.
 
 **Moving the exe:** the startup entry stores the exe's full path. After moving the exe, open
@@ -190,10 +193,23 @@ Settings and click Save (with *Run at Windows startup* ticked) to update it.
 
 | Path | Contents |
 |---|---|
-| `%APPDATA%\NDI2SDI\config.json` | Settings: per output name, source (display device path or NDI name), device + persistent ID, format; buffer, auto-start. A 1.0 config is migrated to Output 1 automatically. |
+| `%APPDATA%\Screen2SDI\config.json` | Settings: per output name, source (display device path or NDI name), device + persistent ID, format; buffer, auto-start. A 1.0 config is migrated to Output 1 automatically. |
 | `C:\VirtualDisplayDriver\vdd_settings.xml` | Virtual monitor count and resolutions (Virtual Display Driver) |
-| `%APPDATA%\NDI2SDI\logs\NDI2SDI_YYYY-MM-DD.log` | Daily logs, last 7 days kept |
-| `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NDI2SDI` | `"<exe>" --tray` when *Run at Windows startup* is on |
+| `%APPDATA%\Screen2SDI\logs\Screen2SDI_YYYY-MM-DD.log` | Daily logs, last 7 days kept |
+| `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Screen2SDI` | `"<exe>" --tray` when *Run at Windows startup* is on |
+
+### Upgrading from NDI2SDI
+
+Until version 1.1 this app was called **NDI2SDI**. The first time Screen2SDI starts it:
+
+- copies `%APPDATA%\NDI2SDI\config.json` to `%APPDATA%\Screen2SDI\` if there is no Screen2SDI config
+  yet (the old folder is left alone as a backup; old logs stay there too);
+- replaces the old `NDI2SDI` startup entry with one for `Screen2SDI.exe`;
+- logs a warning if the old NDI2SDI app is still running (only one app can use a DeckLink output).
+
+Steps: **exit NDI2SDI from its tray icon**, install Screen2SDI (`setup.bat -Install` closes the old
+app for you), start Screen2SDI, and check that every output comes back. After that you can delete the
+old exe/folder (e.g. `C:\Program Files\NDI2SDI`) and any `NDI2SDI` firewall rule.
 
 ### Command line
 
@@ -244,7 +260,7 @@ Settings and click Save (with *Run at Windows startup* ticked) to update it.
   black frames, late/dropped frames, resyncs, buffer depth and NDI receive stats, plus a
   **Latency** line per output: the age of each new frame (NDI: from the sender's submit; display: from
   Windows presenting it), plus the time it waits in the DeckLink queue. Typical: display ~25-30 ms,
-  NDI ~40-60 ms. This covers everything NDI2SDI controls. It does not include
+  NDI ~40-60 ms. This covers everything Screen2SDI controls. It does not include
   anything the sender does *before* submitting the frame, the card's own frame of output delay, or
   the processing delay of the projector/TV. (The age is only valid when the sender's clock matches,
   e.g. same PC.)
@@ -280,7 +296,7 @@ src/
 
 | Symptom | Likely cause |
 |---|---|
-| Red, *"… is in use by another application"* | Another program (ProPresenter, Media Express, an old capture tool…) holds that DeckLink sub-device. Close it, or pick another output. NDI2SDI keeps retrying. |
+| Red, *"… is in use by another application"* | Another program (ProPresenter, Media Express, an old capture tool…) holds that DeckLink sub-device. Close it, or pick another output. Screen2SDI keeps retrying. |
 | Red, *"DeckLink device '…' not found"* | The sub-device was renamed in Desktop Video Setup, or the card's profile changed. Open Settings and pick it again. |
 | Yellow forever | The source name doesn't match exactly, Presenter's NDI output is off, or the firewall blocks NDI. Open Settings → Refresh to see what is visible. |
 | Source on another subnet never shows | Use NDI Access Manager (NDI Tools) to add the sender's IP. |
@@ -288,7 +304,7 @@ src/
 | Display output black, *"display … not found"* | The virtual monitor is gone (driver disabled, count lowered) or was replaced. Settings → Refresh lists, re-pick it. |
 | Display output black, *"access denied"* | Windows is on the secure desktop (UAC prompt, lock screen, Ctrl+Alt+Del). Capture resumes by itself. |
 | SDI is behind the local screen (NDI source) | Switch that output to **Display** capture (step 3), which skips NDI entirely. Otherwise: |
-| SDI is behind the local screen | Check the log's `Latency:` line (NDI2SDI's own share, typically ~60 ms at 1080p59.94 with a 2-frame buffer). For the rest, open **NDI Studio Monitor** on the same source next to Presenter's screen: if it lags just as much, the delay is in Presenter's NDI output. Otherwise it's downstream (converter, scaler, projector/TV processing). Use the display's game/low-latency mode. |
+| SDI is behind the local screen | Check the log's `Latency:` line (Screen2SDI's own share, typically ~60 ms at 1080p59.94 with a 2-frame buffer). For the rest, open **NDI Studio Monitor** on the same source next to Presenter's screen: if it lags just as much, the delay is in Presenter's NDI output. Otherwise it's downstream (converter, scaler, projector/TV processing). Use the display's game/low-latency mode. |
 
 ---
 
@@ -305,7 +321,7 @@ log (*Open Log Folder*).
 | 4 | **Unplug the network** (remote source only) | Black + yellow; plug back in → live again (within ~30 s at worst). |
 | 5 | **Change the format in Settings** (e.g. 1080p29.97 → 1080i59.94) → Save | Output switches within a second or two, no app restart. Tooltip shows the new format. Log: `Applying config`, `output started … 1080i59.94`. |
 | 6 | **Reboot** | Signs in automatically, icon appears in the tray, output starts with **no clicks** (yellow → green once Presenter is up). |
-| 7 | Launch NDI2SDI.exe a second time | No second copy; the running copy's Settings window comes to the front. |
+| 7 | Launch Screen2SDI.exe a second time | No second copy; the running copy's Settings window comes to the front. |
 | 8 | Right-click → Stop Output / Start Output | Red *"Output stopped"* / back to yellow or green. |
 | 9 | Right-click → Exit | Icon disappears; log ends with `Shutdown complete`. |
 | 10 | Put a moving picture on a captured virtual monitor | SDI follows it smoothly; log `Latency: display frame age …` ~15-20 ms. |

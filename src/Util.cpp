@@ -33,7 +33,7 @@ std::wstring AppDataDir() {
         DWORD n = GetEnvironmentVariableW(L"APPDATA", buf, MAX_PATH);
         dir = (n > 0 && n < MAX_PATH) ? std::wstring(buf) : ExeDir();
     }
-    dir += L"\\NDI2SDI";
+    dir += L"\\Screen2SDI";
     CreateDirectoryW(dir.c_str(), nullptr);
     return dir;
 }

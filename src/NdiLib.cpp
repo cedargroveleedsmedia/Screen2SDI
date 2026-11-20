@@ -1,6 +1,6 @@
 #include "NdiLib.h"
 
-#if !NDI2SDI_HAS_NDI
+#if !SCREEN2SDI_HAS_NDI
 
 // Display-capture-only build: NDI is never available.
 namespace Ndi {
@@ -107,4 +107,4 @@ std::vector<std::string> GetSourceNames() {
 
 }  // namespace Ndi
 
-#endif  // NDI2SDI_HAS_NDI
+#endif  // SCREEN2SDI_HAS_NDI

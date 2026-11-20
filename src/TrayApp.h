@@ -11,7 +11,7 @@
 
 class TrayApp {
 public:
-    static constexpr const wchar_t* kWindowClass = L"NDI2SDI.TrayWindow";
+    static constexpr const wchar_t* kWindowClass = L"Screen2SDI.TrayWindow";
     // Registered message a second instance posts to open Settings in the running one.
     static UINT ShowSettingsMessage();
 

@@ -98,7 +98,7 @@ void NdiReceiver::CreateReceiver(const std::string& name) {
     settings.color_format = NDIlib_recv_color_format_UYVY_BGRA;
     settings.bandwidth = NDIlib_recv_bandwidth_highest;
     settings.allow_video_fields = true;
-    settings.p_ndi_recv_name = "NDI2SDI";
+    settings.p_ndi_recv_name = "Screen2SDI";
 
     NDIlib_recv_instance_t recv = api->recv_create_v3(&settings);
     if (!recv) {

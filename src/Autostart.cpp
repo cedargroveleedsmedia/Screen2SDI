@@ -8,7 +8,7 @@
 #include "Util.h"
 
 static const wchar_t kRunKey[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-static const wchar_t kValueName[] = L"NDI2SDI";
+static const wchar_t kValueName[] = L"Screen2SDI";
 
 static std::wstring RunCommand() { return L"\"" + ExePath() + L"\" --tray"; }
 
